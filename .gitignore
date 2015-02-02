@@ -4,6 +4,11 @@
 *.obj
 *.elf
 
+#Eclipse
+*.project
+.settings/*
+.cproject
+
 # Precompiled Headers
 *.gch
 *.pch
