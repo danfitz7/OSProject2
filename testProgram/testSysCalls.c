@@ -36,20 +36,28 @@ int main(int argc, const char* argv[]){
 	printf("%s@shell:%s$\n", getenv("USER"),getenv("PWD"));
 	
 	//try to open
-	printf("Trying to open\n");
+	printf("Opening file...\n");
 	int filedesc = open("testVirus.txt", O_RDONLY);
 	if (filedesc < 0){
 		printf("\nOpen Failed!\n");
 		return 1;
 	}
 	// try to read
-	printf("Trying to read\n");
+	printf("reading file...\n");
 	char buffer[100];
 	size_t result = read(filedesc, buffer, 10);
+	if (result<0){
+		printf("Failed to read from file!\n");
+	}else{
+		printf("Read %d bytes from file:\n", result);
+		printf("Bytes are: '%s'\n", buffer);
+	}
 	
 	// try to close
-	printf("Trying to close\n");
-	close(filedesc);
+	printf("Closing file...\n");
+	if (close(filedesc) < 0){
+		printf("\tFile close failed!\n");
+	}
 	
 	return 0;
 }

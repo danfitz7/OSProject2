@@ -18,9 +18,9 @@ asmlinkage long (*ref_sys_open)(const char __user *filename,int flags, umode_t m
 asmlinkage long new_sys_open(const char __user *filename,int flags, umode_t mode){
 	kuid_t UID_struct  = current_uid(); //get the current user account number (UID) (it comes in a struct)
 	uid_t UID = UID_struct.val;			//get the number form the struct
-	if (UID >= REGULAR_USER_UID){ 		// if UID the  is a regular user (1000 or over)
-		printk("User %d is opening file: %s\n", (int)UID, filename);
-	}
+	//if (UID >= REGULAR_USER_UID){ 		// if UID the  is a regular user (1000 or over)
+		printk(KERN_INFO "\"User %d is opening file: %s\" -- virusScanner\r\n", (int)UID, filename);
+	//}
 	return ref_sys_open(filename, flags, mode); // call the original sys_open() with the original args
 }
 
@@ -33,7 +33,7 @@ asmlinkage long new_sys_read(unsigned int fd, char __user *buf, size_t count){
 		//TODO: look at every read call to determine if the file contains the string virus. If it does, we’ll write a warning to the
 		//system call: Jan 6 18:24:52 dalek kernel: [ 105.033521] User 1000 read from file descriptor2, but that read contained a virus!
 		char searchString[] = "virus";	
-		printk("User %d is reading file descriptor: %d\n", (int)UID, fd);
+		printk(KERN_INFO "\"User %d is reading file descriptor: %d -- virusScanner\r\n", (int)UID, fd);
 	}
 	return ref_sys_read(fd, buf, count); // call the original sys_read() with the original args
 }
@@ -44,7 +44,7 @@ asmlinkage long new_sys_close(unsigned int fd){
 	kuid_t UID_struct  = current_uid(); //get the current user account number (UID) (it comes in a struct)
 	uid_t UID = UID_struct.val;			//get the number form the struct
 	if (UID >= REGULAR_USER_UID){ 		// if UID the  is a regular user (1000 or over)
-		printk("User %d is closing file descriptor: %d\n", (int)UID, fd);
+		printk(KERN_INFO "\"User %d is closing file descriptor: %d -- virusScanner\r\n", (int)UID, fd);
 	}
 	return ref_sys_close(fd); // call the original sys_close() with the given args
 }
