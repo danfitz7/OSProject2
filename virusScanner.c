@@ -18,9 +18,9 @@ asmlinkage long (*ref_sys_open)(const char __user *filename,int flags, umode_t m
 asmlinkage long new_sys_open(const char __user *filename,int flags, umode_t mode){
 	kuid_t UID_struct  = current_uid(); //get the current user account number (UID) (it comes in a struct)
 	uid_t UID = UID_struct.val;			//get the number form the struct
-	//if (UID >= REGULAR_USER_UID){ 		// if UID the  is a regular user (1000 or over)
+	if (UID >= REGULAR_USER_UID){ 		// if UID the  is a regular user (1000 or over)
 		printk(KERN_INFO "\"User %d is opening file: %s\" -- virusScanner\r\n", (int)UID, filename);
-	//}
+	}
 	return ref_sys_open(filename, flags, mode); // call the original sys_open() with the original args
 }
 
@@ -32,8 +32,10 @@ asmlinkage long new_sys_read(unsigned int fd, char __user *buf, size_t count){
 	if (UID >= REGULAR_USER_UID){ 		// if UID the  is a regular user (1000 or over)
 		//TODO: look at every read call to determine if the file contains the string virus. If it does, we’ll write a warning to the
 		//system call: Jan 6 18:24:52 dalek kernel: [ 105.033521] User 1000 read from file descriptor2, but that read contained a virus!
-		char searchString[] = "virus";	
 		printk(KERN_INFO "\"User %d is reading file descriptor: %d -- virusScanner\r\n", (int)UID, fd);
+		
+		char searchString[] = "virus";
+		
 	}
 	return ref_sys_read(fd, buf, count); // call the original sys_read() with the original args
 }
@@ -102,6 +104,7 @@ static int __init interceptor_start(void) {
 	if(!(sys_call_table = find_sys_call_table())) {
 		/* Well, that didn’t work.
 		 Cancel the module loading step. */
+		 printk(KERN_INFO "Virus Scanner Module couldn't find the sys call table!\r\n");
 		return -1;
 	}
 	/* Store a copy of all the existing functions */
@@ -110,6 +113,9 @@ static int __init interceptor_start(void) {
 	ref_sys_read = (void*)sys_call_table[__NR_read];
 	ref_sys_close =(void*)sys_call_table[__NR_close];
 	
+	// debug
+	printk(KERN_INFO "Function Pointers:\n\tcs_3013_syscall: %d,\n\topen:%d\n\tread:%d\n\tclos:%d\r\n", __NR_cs3013_syscall1, __NR_open,__NR_read,__NR_close);
+
 	/* Replace the existing system calls */
 	disable_page_protection();
 	sys_call_table[__NR_cs3013_syscall1] = (unsigned long *)new_sys_cs3013_syscall1; //replace the function pointer for the cs3013_syscall1 kernel system call
@@ -117,8 +123,9 @@ static int __init interceptor_start(void) {
 	sys_call_table[__NR_read] 		 = (unsigned long *)new_sys_read;
 	sys_call_table[__NR_close] 		 = (unsigned long *)new_sys_close;
 	enable_page_protection();
+	
 	/* And indicate the load was successful */
-	printk(KERN_INFO "Loaded interceptor!");
+	printk(KERN_INFO "Loaded interceptors!");
 	return 0;
 }
 
@@ -127,8 +134,10 @@ static int __init interceptor_start(void) {
 //right array location
 static void __exit interceptor_end(void) {
 	/* If we don’t know what the syscall table is, don’t bother. */
-	if(!sys_call_table)
-	return;
+	if(!sys_call_table){
+		printk(KERN_INFO "Virus Scanner Module Unload Failed!\r\n");
+		return;
+	}
 	/* Revert all system calls to what they were before we began. */
 	disable_page_protection();
 	sys_call_table[__NR_cs3013_syscall1] = (unsigned long *)ref_sys_cs3013_syscall1;
@@ -136,6 +145,7 @@ static void __exit interceptor_end(void) {
 	sys_call_table[__NR_read] 		 = (unsigned long *)ref_sys_read;
 	sys_call_table[__NR_close] 		 = (unsigned long *)ref_sys_close;
 	enable_page_protection();
+	
 	printk(KERN_INFO "Unloaded interceptor!");
 }
 
