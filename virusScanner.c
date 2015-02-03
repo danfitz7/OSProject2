@@ -6,29 +6,29 @@
 unsigned long **sys_call_table;
 #define REGULAR_USER_UID (uid_t)1000
 
-//asmlinkage long (*ref_sys_lseek)(int fd, off_t offset, int whence); //get lseek() by hacking
-
 // Our new kernel module function
-asmlinkage long (*ref_sys_cs3013_syscall1)(void); // store the old one
+/*asmlinkage long (*ref_sys_cs3013_syscall1)(void); // store the old one
 asmlinkage long new_sys_cs3013_syscall1(void) {
 	printk(KERN_INFO "\"’Hello world?!’ More like ’Goodbye, world!’ EXTERMINATE!\" -- Dalek\n");
 	return 0;
-}
+}*/
 
 // record the original and override with a new system open call
-asmlinkage int (*ref_sys_open)(const char __user *filename,int flags, umode_t mode);
-asmlinkage int new_sys_open(const char __user *filename,int flags, umode_t mode){
+#define openReturnType long
+asmlinkage openReturnType (*ref_sys_open)(const char __user *filename,int flags, umode_t mode);
+asmlinkage openReturnType new_sys_open(const char __user *filename,int flags, umode_t mode){
 	kuid_t UID_struct  = current_uid(); //get the current user account number (UID) (it comes in a struct)
 	uid_t UID = UID_struct.val;			//get the number form the struct
 	if (UID >= REGULAR_USER_UID){ 		// if UID the  is a regular user (1000 or over)
-		printk(KERN_INFO "\"User %d is opening file: %s\" -- virusScanner\r\n", (int)UID, filename);
+		printk(KERN_INFO "\"User %d is opening file: %s\" -- virusScanner\"\r\n", (int)UID, filename);
 	}
 	return ref_sys_open(filename, flags, mode); // call the original sys_open() with the original args
 }
 
 // record the original and override with a new system read call
-asmlinkage size_t  (*ref_sys_read)(unsigned int fd, char __user *buf, size_t count);
-asmlinkage size_t  new_sys_read(unsigned int fd, char __user *buf, size_t count){
+#define readReturnType long
+asmlinkage readReturnType  (*ref_sys_read)(unsigned int fd, char __user *buf, size_t count);
+asmlinkage readReturnType  new_sys_read(unsigned int fd, char __user *buf, size_t count){
 	kuid_t UID_struct  = current_uid(); //get the current user account number (UID) (it comes in a struct)
 	uid_t UID = UID_struct.val;			//get the number form the struct
 	
@@ -46,7 +46,7 @@ asmlinkage size_t  new_sys_read(unsigned int fd, char __user *buf, size_t count)
 	
 		//TODO: look at every read call to determine if the file contains the string virus. If it does, we’ll write a warning to the
 		//system call: Jan 6 18:24:52 dalek kernel: [ 105.033521] User 1000 read from file descriptor2, but that read contained a virus!
-		printk(KERN_INFO "\"User %d is reading file descriptor: %d", (int)UID, fd);
+		printk(KERN_INFO "\"User %d is reading file descriptor: %d -- virusScanner\"\r\n", (int)UID, fd);
 		
 		/*
 		result = ref_sys_read(fd, &nextChar, 1);
@@ -64,22 +64,22 @@ asmlinkage size_t  new_sys_read(unsigned int fd, char __user *buf, size_t count)
 			result = ref_sys_read(fd, &nextChar, 1);
 		}
 		*/
-		printk(" -- virusScanner\r\n");
+		//printk(" -- virusScanner\r\n");
 		//ref_sys_lseek(fd, 0, SEEK_SET);		 //reset the file offset using lseek
 		
 	}
-	
-	
+
 	return ref_sys_read(fd, buf, count); // call the original sys_read() with the original args
 }
 
 // record the original and override with a new system close call
-asmlinkage int (*ref_sys_close)(unsigned int fd);
-asmlinkage int new_sys_close(unsigned int fd){
+#define closeReturnType long
+asmlinkage closeReturnType (*ref_sys_close)(unsigned int fd);
+asmlinkage closeReturnType new_sys_close(unsigned int fd){
 	kuid_t UID_struct  = current_uid(); //get the current user account number (UID) (it comes in a struct)
 	uid_t UID = UID_struct.val;			//get the number form the struct
 	if (UID >= REGULAR_USER_UID){ 		// if UID the  is a regular user (1000 or over)
-		printk(KERN_INFO "\"User %d is closing file descriptor: %d -- virusScanner\r\n", (int)UID, fd);
+		printk(KERN_INFO "\"User %d is closing file descriptor: %d -- virusScanner\"\r\n", (int)UID, fd);
 	}
 	return ref_sys_close(fd); // call the original sys_close() with the given args
 }
@@ -137,30 +137,30 @@ static int __init interceptor_start(void) {
 	if(!(sys_call_table = find_sys_call_table())) {
 		/* Well, that didn’t work.
 		 Cancel the module loading step. */
-		 printk(KERN_INFO "Virus Scanner Module couldn't find the sys call table!\r\n");
+		 printk(KERN_INFO "\"Virus Scanner Module couldn't find the sys call table!\r\n");
 		return -1;
 	}
 	/* Store a copy of all the existing functions */
-	ref_sys_cs3013_syscall1 = (void *)sys_call_table[__NR_cs3013_syscall1];
-	ref_sys_open = (void*)sys_call_table[__NR_open];
-	ref_sys_read = (void*)sys_call_table[__NR_read];
-	ref_sys_close =(void*)sys_call_table[__NR_close];
+//	ref_sys_cs3013_syscall1 = (void *)sys_call_table[__NR_cs3013_syscall1];
+	ref_sys_open = (void *) sys_call_table[__NR_open];
+	ref_sys_read = (void *) sys_call_table[__NR_read];
+	ref_sys_close= (void *)sys_call_table[__NR_close];
 	
 	//ref_sys_lseek = (void*)sys_call_table[__NR_lseek];
 	
 	// debug
-	printk(KERN_INFO "Function Pointers:\n\tcs_3013_syscall: %d,\n\topen:%d\n\tread:%d\n\tclos:%d\r\n", __NR_cs3013_syscall1, __NR_open,__NR_read,__NR_close);
+	printk(KERN_INFO "\"Function Pointers:\n\topen:%d\n\tread:%d\n\tclose:%d\r\n", __NR_open,__NR_read,__NR_close);
 
 	/* Replace the existing system calls */
 	disable_page_protection();
-	sys_call_table[__NR_cs3013_syscall1] = (unsigned long *)new_sys_cs3013_syscall1; //replace the function pointer for the cs3013_syscall1 kernel system call
-	sys_call_table[__NR_open] 		 = (unsigned long *)new_sys_open;
-	sys_call_table[__NR_read] 		 = (unsigned long *)new_sys_read;
-	sys_call_table[__NR_close] 		 = (unsigned long *)new_sys_close;
+//	sys_call_table[__NR_cs3013_syscall1] = (unsigned long *)new_sys_cs3013_syscall1; //replace the function pointer for the cs3013_syscall1 kernel system call
+	sys_call_table[__NR_open] = (unsigned long *) new_sys_open;
+	sys_call_table[__NR_read] = (unsigned long *) new_sys_read;
+	sys_call_table[__NR_close]= (unsigned long *) new_sys_close;
 	enable_page_protection();
 	
 	/* And indicate the load was successful */
-	printk(KERN_INFO "Loaded interceptors!");
+	printk(KERN_INFO "\"Loaded interceptors!\"\r\n");
 	return 0;
 }
 
@@ -170,18 +170,18 @@ static int __init interceptor_start(void) {
 static void __exit interceptor_end(void) {
 	/* If we don’t know what the syscall table is, don’t bother. */
 	if(!sys_call_table){
-		printk(KERN_INFO "Virus Scanner Module Unload Failed!\r\n");
+		printk(KERN_INFO "\"Virus Scanner Module Unload Failed!\"\r\n");
 		return;
 	}
 	/* Revert all system calls to what they were before we began. */
 	disable_page_protection();
-	sys_call_table[__NR_cs3013_syscall1] = (unsigned long *)ref_sys_cs3013_syscall1;
-	sys_call_table[__NR_open] 		 = (unsigned long *)ref_sys_open;
-	sys_call_table[__NR_read] 		 = (unsigned long *)ref_sys_read;
-	sys_call_table[__NR_close] 		 = (unsigned long *)ref_sys_close;
+//	sys_call_table[__NR_cs3013_syscall1] = (unsigned long *) ref_sys_cs3013_syscall1;
+	sys_call_table[__NR_open] = (unsigned long *) ref_sys_open; 
+	sys_call_table[__NR_read] = (unsigned long *) ref_sys_read;
+	sys_call_table[__NR_close]= (unsigned long *) ref_sys_close;
 	enable_page_protection();
 	
-	printk(KERN_INFO "Unloaded interceptor!");
+	printk(KERN_INFO "\"Unloaded interceptor!\"\r\n");
 }
 
 MODULE_LICENSE("GPL");

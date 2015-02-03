@@ -44,7 +44,7 @@ int main(int argc, const char* argv[]){
 	}
 	// try to read
 	printf("reading file...\n");
-	char buffer[100];
+	char buffer[10];
 	size_t result = read(filedesc, buffer, 10);
 	if (result<0){
 		printf("Failed to read from file!\n");
