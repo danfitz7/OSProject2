@@ -4,13 +4,32 @@
 #include <linux/syscalls.h>
 
 unsigned long **sys_call_table;
-asmlinkage long (*ref_sys_cs3013_syscall1)(void);
 
 // Our new kernel module function
+asmlinkage long (*ref_sys_cs3013_syscall1)(void); // store the old one
 asmlinkage long new_sys_cs3013_syscall1(void) {
 	printk(KERN_INFO "\"’Hello world?!’ More like ’Goodbye, world!’ EXTERMINATE!\" -- Dalek");
 	return 0;
 }
+
+// record the original and override with a new system read call
+asmlinkage long (*ref_sys_read)(unsigned int fd, char __user *buf, size_t count);
+asmlinkage long new_read(unsigned int fd, char __user *buf, size_t count){
+	return ref_sys_read(fd, buf, count);
+}
+
+// record the original and override with a new system open call
+asmlinkage long (*ref_sys_open)(const char __user *filename,int flags, umode_t mode);
+asmlinkage long new_open(const char __user *filename,int flags, umode_t mode){
+	return ref_sys_open(filename, flags, mode);
+}
+
+// record the original and override with a new system close call
+asmlinkage long (*ref_sys_close)(unsigned int fd);
+asmlinkage long new_close(unsigned int fd){
+	return ref_sys_close(fd);
+}
+
 
 // Finds the address of the system call table so we can replace some entries with our own functions.
 // Don't need to modify
