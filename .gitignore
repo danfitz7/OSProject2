@@ -8,6 +8,7 @@
 *.project
 .settings/*
 .cproject
+*~
 
 #kernel modules
 *.ko
