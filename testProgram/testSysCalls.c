@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 // These values MUST match the unistd_32.h modifications:
 #define __NR_cs3013_syscall1 355
@@ -29,5 +31,25 @@ int main(int argc, const char* argv[]){
 	//printf("\tcs3013_syscall2: %ld\n", testCall2());
 	//printf("\tcs3013_syscall3: %ld\n", testCall3());
 
+	//Print current UID
+	printf("Acting as user %d:\n", getuid());
+	printf("%s@shell:%s$\n", getenv("USER"),getenv("PWD"));
+	
+	//try to open
+	printf("Trying to open\n");
+	int filedesc = open("testVirus.txt", O_RDONLY);
+	if (filedesc < 0){
+		printf("\nOpen Failed!\n");
+		return 1;
+	}
+	// try to read
+	printf("Trying to read\n");
+	char buffer[100];
+	size_t result = read(filedesc, buffer, 10);
+	
+	// try to close
+	printf("Trying to close\n");
+	close(filedesc);
+	
 	return 0;
 }

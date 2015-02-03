@@ -4,11 +4,12 @@
 #include <linux/syscalls.h>
 
 unsigned long **sys_call_table;
+#define REGULAR_USER_UID (uid_t)1000
 
 // Our new kernel module function
 asmlinkage long (*ref_sys_cs3013_syscall1)(void); // store the old one
 asmlinkage long new_sys_cs3013_syscall1(void) {
-	printk(KERN_INFO "\"’Hello world?!’ More like ’Goodbye, world!’ EXTERMINATE!\" -- Dalek");
+	printk(KERN_INFO "\"’Hello world?!’ More like ’Goodbye, world!’ EXTERMINATE!\" -- Dalek\n");
 	return 0;
 }
 
@@ -17,24 +18,35 @@ asmlinkage long (*ref_sys_open)(const char __user *filename,int flags, umode_t m
 asmlinkage long new_sys_open(const char __user *filename,int flags, umode_t mode){
 	kuid_t UID_struct  = current_uid(); //get the current user account number (UID) (it comes in a struct)
 	uid_t UID = UID_struct.val;			//get the number form the struct
-	if (UID > (uid_t)1000){ // if UID the  is a regular user (over 1000)
-		printk("user %d is opening file %s\n", (int)UID, filename);
+	if (UID >= REGULAR_USER_UID){ 		// if UID the  is a regular user (1000 or over)
+		printk("User %d is opening file: %s\n", (int)UID, filename);
 	}
-	return ref_sys_open(filename, flags, mode);
+	return ref_sys_open(filename, flags, mode); // call the original sys_open() with the original args
 }
 
 // record the original and override with a new system read call
 asmlinkage long (*ref_sys_read)(unsigned int fd, char __user *buf, size_t count);
 asmlinkage long new_sys_read(unsigned int fd, char __user *buf, size_t count){
-	//TODO: look at every read call to determine if the file contains the string virus. If it does, we’ll write a warning to the
-	//system call: Jan 6 18:24:52 dalek kernel: [ 105.033521] User 1000 read from file descriptor2, but that read contained a virus!
-	return ref_sys_read(fd, buf, count);
+	kuid_t UID_struct  = current_uid(); //get the current user account number (UID) (it comes in a struct)
+	uid_t UID = UID_struct.val;			//get the number form the struct
+	if (UID >= REGULAR_USER_UID){ 		// if UID the  is a regular user (1000 or over)
+		//TODO: look at every read call to determine if the file contains the string virus. If it does, we’ll write a warning to the
+		//system call: Jan 6 18:24:52 dalek kernel: [ 105.033521] User 1000 read from file descriptor2, but that read contained a virus!
+		char searchString[] = "virus";	
+		printk("User %d is reading file descriptor: %d\n", (int)UID, fd);
+	}
+	return ref_sys_read(fd, buf, count); // call the original sys_read() with the original args
 }
 
 // record the original and override with a new system close call
 asmlinkage long (*ref_sys_close)(unsigned int fd);
 asmlinkage long new_sys_close(unsigned int fd){
-	return ref_sys_close(fd);
+	kuid_t UID_struct  = current_uid(); //get the current user account number (UID) (it comes in a struct)
+	uid_t UID = UID_struct.val;			//get the number form the struct
+	if (UID >= REGULAR_USER_UID){ 		// if UID the  is a regular user (1000 or over)
+		printk("User %d is closing file descriptor: %d\n", (int)UID, fd);
+	}
+	return ref_sys_close(fd); // call the original sys_close() with the given args
 }
 
 // Finds the address of the system call table so we can replace some entries with our own functions.
