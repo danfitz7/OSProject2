@@ -12,21 +12,21 @@ asmlinkage long new_sys_cs3013_syscall1(void) {
 	return 0;
 }
 
-// record the original and override with a new system read call
-asmlinkage long (*ref_sys_read)(unsigned int fd, char __user *buf, size_t count);
-asmlinkage long new_read(unsigned int fd, char __user *buf, size_t count){
-	return ref_sys_read(fd, buf, count);
-}
-
 // record the original and override with a new system open call
 asmlinkage long (*ref_sys_open)(const char __user *filename,int flags, umode_t mode);
-asmlinkage long new_open(const char __user *filename,int flags, umode_t mode){
+asmlinkage long new_sys_open(const char __user *filename,int flags, umode_t mode){
 	return ref_sys_open(filename, flags, mode);
+}
+
+// record the original and override with a new system read call
+asmlinkage long (*ref_sys_read)(unsigned int fd, char __user *buf, size_t count);
+asmlinkage long new_sys_read(unsigned int fd, char __user *buf, size_t count){
+	return ref_sys_read(fd, buf, count);
 }
 
 // record the original and override with a new system close call
 asmlinkage long (*ref_sys_close)(unsigned int fd);
-asmlinkage long new_close(unsigned int fd){
+asmlinkage long new_sys_close(unsigned int fd){
 	return ref_sys_close(fd);
 }
 
@@ -88,9 +88,16 @@ static int __init interceptor_start(void) {
 	}
 	/* Store a copy of all the existing functions */
 	ref_sys_cs3013_syscall1 = (void *)sys_call_table[__NR_cs3013_syscall1];
+	ref_sys_open = (void*)sys_call_table[__NR_sys_open];
+	ref_sys_read = (void*)sys_call_table[__NR_sys_read];
+	ref_sys_close =(void*)sys_call_table[__NR_sys_close];
+	
 	/* Replace the existing system calls */
 	disable_page_protection();
 	sys_call_table[__NR_cs3013_syscall1] = (unsigned long *)new_sys_cs3013_syscall1; //replace the function pointer for the cs3013_syscall1 kernel system call
+	sys_call_table[__NR_sys_open] 		 = (unsigned long *)new_sys_open;
+	sys_call_table[__NR_sys_read] 		 = (unsigned long *)new_sys_read;
+	sys_call_table[__NR_sys_close] 		 = (unsigned long *)new_sys_close;
 	enable_page_protection();
 	/* And indicate the load was successful */
 	printk(KERN_INFO "Loaded interceptor!");
@@ -107,6 +114,9 @@ static void __exit interceptor_end(void) {
 	/* Revert all system calls to what they were before we began. */
 	disable_page_protection();
 	sys_call_table[__NR_cs3013_syscall1] = (unsigned long *)ref_sys_cs3013_syscall1;
+	sys_call_table[__NR_sys_open] 		 = (unsigned long *)ref_sys_open;
+	sys_call_table[__NR_sys_read] 		 = (unsigned long *)ref_sys_read;
+	sys_call_table[__NR_sys_close] 		 = (unsigned long *)ref_sys_close;
 	enable_page_protection();
 	printk(KERN_INFO "Unloaded interceptor!");
 }
