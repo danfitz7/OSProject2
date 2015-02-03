@@ -1,10 +1,12 @@
 #include <linux/kernel.h>
-//#include <include/linux/kernel.h>
 #include <linux/module.h>
 #include <linux/syscalls.h>
+#include <linux/unistd.h>
 
 unsigned long **sys_call_table;
 #define REGULAR_USER_UID (uid_t)1000
+
+//asmlinkage long (*ref_sys_lseek)(int fd, off_t offset, int whence); //get lseek() by hacking
 
 // Our new kernel module function
 asmlinkage long (*ref_sys_cs3013_syscall1)(void); // store the old one
@@ -14,8 +16,8 @@ asmlinkage long new_sys_cs3013_syscall1(void) {
 }
 
 // record the original and override with a new system open call
-asmlinkage long (*ref_sys_open)(const char __user *filename,int flags, umode_t mode);
-asmlinkage long new_sys_open(const char __user *filename,int flags, umode_t mode){
+asmlinkage int (*ref_sys_open)(const char __user *filename,int flags, umode_t mode);
+asmlinkage int new_sys_open(const char __user *filename,int flags, umode_t mode){
 	kuid_t UID_struct  = current_uid(); //get the current user account number (UID) (it comes in a struct)
 	uid_t UID = UID_struct.val;			//get the number form the struct
 	if (UID >= REGULAR_USER_UID){ 		// if UID the  is a regular user (1000 or over)
@@ -25,24 +27,55 @@ asmlinkage long new_sys_open(const char __user *filename,int flags, umode_t mode
 }
 
 // record the original and override with a new system read call
-asmlinkage long (*ref_sys_read)(unsigned int fd, char __user *buf, size_t count);
-asmlinkage long new_sys_read(unsigned int fd, char __user *buf, size_t count){
+asmlinkage size_t  (*ref_sys_read)(unsigned int fd, char __user *buf, size_t count);
+asmlinkage size_t  new_sys_read(unsigned int fd, char __user *buf, size_t count){
 	kuid_t UID_struct  = current_uid(); //get the current user account number (UID) (it comes in a struct)
 	uid_t UID = UID_struct.val;			//get the number form the struct
+	
+	/*
+	char nextChar;
+	char* searchString = searchString = "virus";
+	int searchStringLength = 5;
+	int curSearchStringChar = 0;
+	size_t result;
+	int offset = 0;
+	*/
+	
 	if (UID >= REGULAR_USER_UID){ 		// if UID the  is a regular user (1000 or over)
+		
+	
 		//TODO: look at every read call to determine if the file contains the string virus. If it does, we’ll write a warning to the
 		//system call: Jan 6 18:24:52 dalek kernel: [ 105.033521] User 1000 read from file descriptor2, but that read contained a virus!
-		printk(KERN_INFO "\"User %d is reading file descriptor: %d -- virusScanner\r\n", (int)UID, fd);
+		printk(KERN_INFO "\"User %d is reading file descriptor: %d", (int)UID, fd);
 		
-		char searchString[] = "virus";
+		/*
+		result = ref_sys_read(fd, &nextChar, 1);
+		while (result == 1){
+			if (nextChar==searchString[curSearchStringChar]){//matched the next character
+				curSearchStringChar++;
+				if (curSearchStringChar >= searchStringLength){
+					printk(", but that file contained a virus!"); //alert to viruses
+					break;
+				}
+			}else{
+				curSearchStringChar = 0; //go back to the beginning
+			}
+			offset++;
+			result = ref_sys_read(fd, &nextChar, 1);
+		}
+		*/
+		printk(" -- virusScanner\r\n");
+		//ref_sys_lseek(fd, 0, SEEK_SET);		 //reset the file offset using lseek
 		
 	}
+	
+	
 	return ref_sys_read(fd, buf, count); // call the original sys_read() with the original args
 }
 
 // record the original and override with a new system close call
-asmlinkage long (*ref_sys_close)(unsigned int fd);
-asmlinkage long new_sys_close(unsigned int fd){
+asmlinkage int (*ref_sys_close)(unsigned int fd);
+asmlinkage int new_sys_close(unsigned int fd){
 	kuid_t UID_struct  = current_uid(); //get the current user account number (UID) (it comes in a struct)
 	uid_t UID = UID_struct.val;			//get the number form the struct
 	if (UID >= REGULAR_USER_UID){ 		// if UID the  is a regular user (1000 or over)
@@ -112,6 +145,8 @@ static int __init interceptor_start(void) {
 	ref_sys_open = (void*)sys_call_table[__NR_open];
 	ref_sys_read = (void*)sys_call_table[__NR_read];
 	ref_sys_close =(void*)sys_call_table[__NR_close];
+	
+	//ref_sys_lseek = (void*)sys_call_table[__NR_lseek];
 	
 	// debug
 	printk(KERN_INFO "Function Pointers:\n\tcs_3013_syscall: %d,\n\topen:%d\n\tread:%d\n\tclos:%d\r\n", __NR_cs3013_syscall1, __NR_open,__NR_read,__NR_close);
